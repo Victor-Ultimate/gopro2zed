@@ -32,9 +32,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-cuda = [
-    "torch>=2.0",
-]
 dev = [
     "pytest>=7.0",
 ]

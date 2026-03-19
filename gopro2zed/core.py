@@ -7,149 +7,6 @@ import cv2
 import numpy as np
 import yaml
 
-_CUDA_AVAILABLE = None
-_TORCH_AVAILABLE = None
-
-
-def _torch_available():
-    """检测 PyTorch 是否已安装。"""
-    global _TORCH_AVAILABLE
-    if _TORCH_AVAILABLE is not None:
-        return _TORCH_AVAILABLE
-    try:
-        import torch
-        _TORCH_AVAILABLE = True
-        return True
-    except ImportError:
-        _TORCH_AVAILABLE = False
-        return False
-
-
-def cuda_available():
-    """检测 CUDA 加速是否可用。优先使用 PyTorch（pip install torch 即可），其次 OpenCV CUDA。"""
-    global _CUDA_AVAILABLE
-    if _CUDA_AVAILABLE is not None:
-        return _CUDA_AVAILABLE
-    # 1. 优先 PyTorch CUDA（安装简单：pip install torch）
-    if _torch_available():
-        try:
-            import torch
-            if torch.cuda.is_available():
-                _CUDA_AVAILABLE = True
-                return True
-        except Exception:
-            pass
-    # 2. 其次 OpenCV CUDA（需自定义编译）
-    try:
-        if not hasattr(cv2, "cuda"):
-            _CUDA_AVAILABLE = False
-            return False
-        GpuMat = getattr(cv2.cuda, "GpuMat", None) or getattr(cv2, "cuda_GpuMat", None)
-        if GpuMat is None:
-            _CUDA_AVAILABLE = False
-            return False
-        gpu = GpuMat()
-        gpu.upload(np.zeros((2, 2), dtype=np.uint8))
-        _CUDA_AVAILABLE = True
-        return True
-    except Exception:
-        _CUDA_AVAILABLE = False
-        return False
-
-
-def warmup_cuda():
-    """提前加载 CUDA 相关模块（如 PyTorch），避免首次调用时 import 计入计时。"""
-    if not cuda_available():
-        return
-    if _torch_available():
-        try:
-            import torch
-            if torch.cuda.is_available():
-                import torch.nn.functional as F  # noqa: F401 - 触发 import
-                torch.cuda.synchronize()
-        except Exception:
-            pass
-
-
-def _remap_pytorch(image, map1, map2, interpolation):
-    """使用 PyTorch grid_sample 在 GPU 上执行 remap。"""
-    import torch
-    import torch.nn.functional as F
-
-    h_src, w_src = image.shape[:2]
-    if len(image.shape) == 2:
-        image = image[:, :, np.newaxis]
-
-    # (H, W, C) -> (1, C, H, W)
-    img_t = torch.from_numpy(image).permute(2, 0, 1).unsqueeze(0).float() / 255.0
-
-    # map1=map_x(列), map2=map_y(行); 转为 PyTorch 归一化坐标 [-1,1]
-    # 避免除零
-    w_safe = max(w_src - 1, 1)
-    h_safe = max(h_src - 1, 1)
-    grid_x = (2.0 * map1.astype(np.float32) / w_safe) - 1.0
-    grid_y = (2.0 * map2.astype(np.float32) / h_safe) - 1.0
-
-    grid = np.stack([grid_x, grid_y], axis=-1)
-    grid_t = torch.from_numpy(grid).unsqueeze(0).float()
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    img_t = img_t.to(device)
-    grid_t = grid_t.to(device)
-
-    mode = "bilinear" if interpolation == cv2.INTER_LINEAR else "nearest"
-    out = F.grid_sample(
-        img_t,
-        grid_t,
-        mode=mode,
-        padding_mode="zeros",
-        align_corners=False,
-    )
-
-    out = (out.squeeze(0).permute(1, 2, 0).cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
-    return out
-
-
-def _remap_opencv_cuda(image, map1, map2, interpolation, border_mode):
-    """使用 OpenCV CUDA 执行 remap，失败时回退到 CPU。"""
-    GpuMat = getattr(cv2.cuda, "GpuMat", None) or getattr(cv2, "cuda_GpuMat", None)
-    if GpuMat is None:
-        return cv2.remap(image, map1, map2, interpolation=interpolation, borderMode=border_mode)
-    try:
-        gpu_src = GpuMat()
-        gpu_src.upload(image)
-        gpu_map1 = GpuMat()
-        gpu_map1.upload(map1.astype(np.float32))
-        gpu_map2 = GpuMat()
-        gpu_map2.upload(map2.astype(np.float32))
-        gpu_dst = cv2.cuda.remap(
-            gpu_src, gpu_map1, gpu_map2,
-            interpolation=interpolation,
-            borderMode=border_mode,
-        )
-        return gpu_dst.download()
-    except Exception:
-        return cv2.remap(
-            image, map1, map2,
-            interpolation=interpolation,
-            borderMode=border_mode,
-        )
-
-
-def _remap_cuda(image, map1, map2, interpolation, border_mode):
-    """CUDA remap：优先 PyTorch，其次 OpenCV CUDA，失败则 CPU。"""
-    if _torch_available():
-        try:
-            import torch
-            if torch.cuda.is_available():
-                return _remap_pytorch(image, map1, map2, interpolation)
-        except Exception:
-            pass
-    # OpenCV CUDA
-    if hasattr(cv2, "cuda"):
-        return _remap_opencv_cuda(image, map1, map2, interpolation, border_mode)
-    return cv2.remap(image, map1, map2, interpolation=interpolation, borderMode=border_mode)
-
 
 def load_source_fisheye_json(json_path, aspect_mode="fy_over_fx"):
     """
@@ -296,9 +153,12 @@ def fisheye_to_target_pinhole(
     target_size,
     interpolation=cv2.INTER_LINEAR,
     border_mode=cv2.BORDER_CONSTANT,
-    use_cuda=False,
+    use_fast=False,
 ):
-    """将鱼眼图像转换为目标针孔视角。"""
+    """将鱼眼图像转换为目标针孔视角。
+
+    use_fast: 使用 INTER_NEAREST 插值，速度更快但画质略降。
+    """
     image = cv2.imread(image_path)
     if image is None:
         raise FileNotFoundError(f"Cannot read image: {image_path}")
@@ -314,16 +174,14 @@ def fisheye_to_target_pinhole(
         m1type=cv2.CV_32FC1,
     )
 
-    if use_cuda and cuda_available():
-        out = _remap_cuda(image, map1, map2, interpolation, border_mode)
-    else:
-        out = cv2.remap(
-            image,
-            map1,
-            map2,
-            interpolation=interpolation,
-            borderMode=border_mode,
-        )
+    interp = cv2.INTER_NEAREST if use_fast else interpolation
+    out = cv2.remap(
+        image,
+        map1,
+        map2,
+        interpolation=interp,
+        borderMode=border_mode,
+    )
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     ok = cv2.imwrite(output_path, out)

@@ -8,8 +8,6 @@ from .core import (
     load_target_zed_yaml,
     default_zed_mini_target,
     fisheye_to_target_pinhole,
-    cuda_available,
-    warmup_cuda,
 )
 
 
@@ -39,9 +37,9 @@ def main():
         help="Interpretation of aspect_ratio in source JSON"
     )
     parser.add_argument(
-        "--cuda",
+        "--fast",
         action="store_true",
-        help="Use CUDA GPU acceleration via PyTorch (pip install torch)",
+        help="Use faster interpolation (INTER_NEAREST), slightly lower quality",
     )
 
     args = parser.parse_args()
@@ -55,12 +53,6 @@ def main():
         target = default_zed_mini_target()
         target_name = "default_zed_mini_target"
 
-    if args.cuda and not cuda_available():
-        print("Warning: --cuda requested but CUDA not available, falling back to CPU. "
-              "Install PyTorch with CUDA: pip install torch (or pip install gopro2zed[cuda])")
-    elif args.cuda:
-        warmup_cuda()  # 提前加载 torch/CUDA，不计入转换耗时
-
     start_time = time.time()
     fisheye_to_target_pinhole(
         image_path=args.image,
@@ -69,7 +61,7 @@ def main():
         source_D=source["D"],
         target_K=target["K"],
         target_size=target["resolution"],
-        use_cuda=args.cuda,
+        use_fast=args.fast,
     )
     end_time = time.time()
     print(f"Time taken: {end_time - start_time} seconds")

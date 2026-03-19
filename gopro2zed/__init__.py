@@ -11,7 +11,6 @@ from .core import (
     load_target_zed_yaml,
     default_zed_mini_target,
     fisheye_to_target_pinhole,
-    cuda_available,
 )
 
 __all__ = [
@@ -20,5 +19,4 @@ __all__ = [
     "load_target_zed_yaml",
     "default_zed_mini_target",
     "fisheye_to_target_pinhole",
-    "cuda_available",
 ]

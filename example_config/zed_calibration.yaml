@@ -1,0 +1,36 @@
+left:
+  camera_model: pinhole
+  distortion_model: radtan
+  intrinsics:
+  - 732.4281616210938
+  - 732.4281616210938
+  - 632.6190795898438
+  - 350.9999084472656
+  distortion_coeffs:
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  resolution:
+  - 1280
+  - 720
+right:
+  camera_model: pinhole
+  distortion_model: radtan
+  intrinsics:
+  - 732.4281616210938
+  - 732.4281616210938
+  - 632.6190795898438
+  - 350.9999084472656
+  distortion_coeffs:
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  resolution:
+  - 1280
+  - 720
+stereo:
+  baseline_m: 0.06301791965961456

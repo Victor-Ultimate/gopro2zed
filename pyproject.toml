@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gopro2zed"
+version = "0.1.0"
+description = "将 GoPro 鱼眼图像转换为 ZED Mini 风格的针孔图像"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [
+    {name = "gopro2zed"}
+]
+keywords = ["fisheye", "zed", "opencv", "camera", "calibration"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+dependencies = [
+    "numpy>=1.20",
+    "opencv-python>=4.5",
+    "PyYAML>=5.0",
+]
+
+[project.optional-dependencies]
+cuda = [
+    "torch>=2.0",
+]
+dev = [
+    "pytest>=7.0",
+]
+
+[project.scripts]
+gopro2zed = "gopro2zed.cli:main"
+
+[project.urls]
+Repository = "https://github.com/your-repo/gopro2zed"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["gopro2zed*"]

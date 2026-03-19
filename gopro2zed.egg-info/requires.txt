@@ -1,0 +1,6 @@
+numpy>=1.20
+opencv-python>=4.5
+PyYAML>=5.0
+
+[dev]
+pytest>=7.0

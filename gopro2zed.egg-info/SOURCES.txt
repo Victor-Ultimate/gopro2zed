@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+gopro2zed/__init__.py
+gopro2zed/cli.py
+gopro2zed/core.py
+gopro2zed.egg-info/PKG-INFO
+gopro2zed.egg-info/SOURCES.txt
+gopro2zed.egg-info/dependency_links.txt
+gopro2zed.egg-info/entry_points.txt
+gopro2zed.egg-info/requires.txt
+gopro2zed.egg-info/top_level.txt

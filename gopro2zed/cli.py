@@ -9,6 +9,7 @@ from .core import (
     default_zed_mini_target,
     fisheye_to_target_pinhole,
     cuda_available,
+    warmup_cuda,
 )
 
 
@@ -57,6 +58,8 @@ def main():
     if args.cuda and not cuda_available():
         print("Warning: --cuda requested but CUDA not available, falling back to CPU. "
               "Install PyTorch with CUDA: pip install torch (or pip install gopro2zed[cuda])")
+    elif args.cuda:
+        warmup_cuda()  # 提前加载 torch/CUDA，不计入转换耗时
 
     start_time = time.time()
     fisheye_to_target_pinhole(

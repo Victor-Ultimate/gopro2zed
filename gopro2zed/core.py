@@ -57,6 +57,20 @@ def cuda_available():
         return False
 
 
+def warmup_cuda():
+    """提前加载 CUDA 相关模块（如 PyTorch），避免首次调用时 import 计入计时。"""
+    if not cuda_available():
+        return
+    if _torch_available():
+        try:
+            import torch
+            if torch.cuda.is_available():
+                import torch.nn.functional as F  # noqa: F401 - 触发 import
+                torch.cuda.synchronize()
+        except Exception:
+            pass
+
+
 def _remap_pytorch(image, map1, map2, interpolation):
     """使用 PyTorch grid_sample 在 GPU 上执行 remap。"""
     import torch
